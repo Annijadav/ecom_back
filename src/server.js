@@ -45,8 +45,14 @@ app.use(express.json());
 
 app.use(morgan('dev'));
 
-// Serve static files from src/uploads
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Serve static files from uploads directory
+// On Vercel, files are stored in /tmp/uploads (ephemeral)
+const IS_VERCEL = process.env.VERCEL === '1' || process.env.VERCEL === 'true';
+if (IS_VERCEL) {
+  app.use('/uploads', express.static('/tmp/uploads'));
+} else {
+  app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+}
 
 
 // Routes

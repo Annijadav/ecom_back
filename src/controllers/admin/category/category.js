@@ -8,7 +8,7 @@ import categorySchema from '../../../validation/admin/categoryvalidation/categor
 // import { v2 as cloudinary } from 'cloudinary';
 import mongoose from 'mongoose';
 import Product from '../../../models/product/product.js';
-import { getFileUrl } from '../../../middlewares/multerConfig.js';
+import { getFileUrl, getUploadBase } from '../../../middlewares/multerConfig.js';
 
 import fs from 'fs';
 // import path from 'path';
@@ -272,7 +272,7 @@ export const updateCategory = asyncHandler(async (req, res) => {
     // જો જૂની બેનર ઇમેજ હોય, તો તેને ડિલીટ કરો
     if (category.bannerImage) {
       const filename = path.basename(category.bannerImage);
-      const bannerImagePath = path.join(UPLOADS_BASE_DIR, filename);
+      const bannerImagePath = path.join(getCategoryUploadsDir(), filename);
       await deleteFile(bannerImagePath);
     }
 
@@ -303,16 +303,19 @@ export const updateCategory = asyncHandler(async (req, res) => {
 
 
 
-const UPLOADS_BASE_DIR = process.env.UPLOADS_DIR || path.join(process.cwd(), 'uploads', 'categories');
 
-// Ensure the uploads/categories folder exists (try-catch for read-only environments like Vercel)
-try {
-  if (!fs.existsSync(UPLOADS_BASE_DIR)) {
-    fs.mkdirSync(UPLOADS_BASE_DIR, { recursive: true });
+
+const getCategoryUploadsDir = () => {
+  const dir = path.join(getUploadBase(), 'categories');
+  try {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  } catch (error) {
+    console.warn(`Could not create uploads directory at ${dir}. This is expected in serverless environments like Vercel.`);
   }
-} catch (error) {
-  console.warn(`Could not create uploads directory at ${UPLOADS_BASE_DIR}. This is expected in serverless environments like Vercel.`);
-}
+  return dir;
+};
 
 const deleteFile = async (filePath) => {
   try {
@@ -357,7 +360,7 @@ export const deleteCategory = asyncHandler(async (req, res) => {
     // Delete associated banner image from local storage
     if (category.bannerImage) {
       const filename = path.basename(category.bannerImage);
-      const bannerImagePath = path.join(UPLOADS_BASE_DIR, filename);
+      const bannerImagePath = path.join(getCategoryUploadsDir(), filename);
       // console.log(`Deleting image: ${bannerImagePath}`);
       await deleteFile(bannerImagePath);
     }

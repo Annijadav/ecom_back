@@ -13,6 +13,7 @@ import { STATUS } from "../../../config/constant/status/status.js";
 import mongoose from "mongoose";
 // import path from 'path';
 // import { deleteFile } from '../../../middlewares/multerConfig.js';
+import { getUploadBase } from '../../../middlewares/multerConfig.js';
 // Resolve __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -2519,7 +2520,7 @@ export const updateProduct = asyncHandler(async (req, res) => {
             }
             const normalizedUrl = normalizeUrl(img.url);
             const filename = path.basename(normalizedUrl);
-            const filePath = path.join(UPLOADS_BASE_DIR, filename);
+            const filePath = path.join(getProductUploadsDir(), filename);
             const exists = fs.existsSync(filePath);
             if (!exists) {
               console.warn(`Image file does not exist: ${filePath}`);
@@ -2536,7 +2537,7 @@ export const updateProduct = asyncHandler(async (req, res) => {
       for (const image of imagesToDelete) {
         try {
           const filename = path.basename(normalizeUrl(image.url));
-          const filePath = path.join(UPLOADS_BASE_DIR, filename);
+          const filePath = path.join(getProductUploadsDir(), filename);
           await deleteFile(filePath);
         } catch (error) {
           console.error(`Failed to delete local file ${image.public_id}:`, error.message);
@@ -2548,7 +2549,7 @@ export const updateProduct = asyncHandler(async (req, res) => {
       const newImagesFromExisting = frontendExistingImages
         .filter((img) => {
           const normalizedUrl = normalizeUrl(img.url);
-          return !images.some((i) => normalizeUrl(i.url) === normalizedUrl) && fs.existsSync(path.join(UPLOADS_BASE_DIR, path.basename(normalizedUrl)));
+          return !images.some((i) => normalizeUrl(i.url) === normalizedUrl) && fs.existsSync(path.join(getProductUploadsDir(), path.basename(normalizedUrl)));
         })
         .map((img, i) => ({
           url: normalizeUrl(img.url),
@@ -2590,7 +2591,7 @@ export const updateProduct = asyncHandler(async (req, res) => {
         for (const publicId of imagesToRemove) {
           if (existingPublicIds.includes(publicId)) {
             try {
-              const filePath = path.join(UPLOADS_BASE_DIR, publicId);
+              const filePath = path.join(getProductUploadsDir(), publicId);
               await deleteFile(filePath);
             } catch (error) {
               console.error(`Failed to delete local file ${publicId}:`, error.message);
@@ -3246,11 +3247,17 @@ export const updateProduct = asyncHandler(async (req, res) => {
  * @route   DELETE /api/products/:id
  * @access  Private (Admin)
  */
-const UPLOADS_BASE_DIR = process.env.UPLOADS_DIR || path.join(process.cwd(), 'uploads', 'products');
-// Ensure the uploads/categories folder exists
-if (!fs.existsSync(UPLOADS_BASE_DIR)) {
-  fs.mkdirSync(UPLOADS_BASE_DIR, { recursive: true });
-}
+const getProductUploadsDir = () => {
+  const dir = path.join(getUploadBase(), 'products');
+  try {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  } catch (error) {
+    console.warn(`Could not create uploads directory at ${dir}. This is expected in serverless environments like Vercel.`);
+  }
+  return dir;
+};
 
 export const deleteProduct = asyncHandler(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) {
@@ -3272,7 +3279,7 @@ export const deleteProduct = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const uploadsDir = UPLOADS_BASE_DIR;
+    const uploadsDir = getProductUploadsDir();
 
     const deletePromises = product.variants.flatMap((variant) =>
       variant.images?.map((img) => {

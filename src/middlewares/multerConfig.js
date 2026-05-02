@@ -7,17 +7,32 @@ import fs from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Detect if running on Vercel (read-only filesystem, only /tmp is writable)
+const IS_VERCEL = process.env.VERCEL === '1' || process.env.VERCEL === 'true';
+
+// Get the base upload directory - use /tmp on Vercel, local path otherwise
+const getUploadBase = () => {
+  if (IS_VERCEL) {
+    return '/tmp/uploads';
+  }
+  return path.join(__dirname, '../../uploads');
+};
+
 // Create uploads directory if it doesn't exist
 const createUploadDir = (dir) => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+  try {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  } catch (error) {
+    console.warn(`Could not create directory ${dir}:`, error.message);
   }
 };
 
 // Local storage configuration for categories
 const categoryStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadPath = path.join(__dirname, '../../uploads/categories');
+    const uploadPath = path.join(getUploadBase(), 'categories');
     createUploadDir(uploadPath);
     cb(null, uploadPath);
   },
@@ -32,7 +47,7 @@ const categoryStorage = multer.diskStorage({
 // Local storage configuration for products
 const productStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadPath = path.join(__dirname, '../../uploads/products'); // Save to src/uploads/products
+    const uploadPath = path.join(getUploadBase(), 'products');
     createUploadDir(uploadPath);
     cb(null, uploadPath);
   },
@@ -47,7 +62,7 @@ const productStorage = multer.diskStorage({
 // Local storage configuration for profiles
 const profileStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadPath = path.join(__dirname, '../../uploads/profiles');
+    const uploadPath = path.join(getUploadBase(), 'profiles');
     createUploadDir(uploadPath);
     cb(null, uploadPath);
   },
@@ -158,7 +173,8 @@ export const getFileUrl = (req, filename, folderName) => {
   return `${host}/uploads/${folderName}/${filename}`;
 };
 
-
+// Export the upload base getter for use in other files
+export { getUploadBase, IS_VERCEL };
 
 // Helper function to delete local files
 export const deleteFile = (filePath) => {
