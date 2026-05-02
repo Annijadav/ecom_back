@@ -18,10 +18,7 @@ import EmailTemplates, {
   getPasswordResetTemplate,
   getPasswordChangeTemplate,
 } from '../../../utils/emailTemplates/emailTemplate.js';
-import { deleteFile, getFileUrl } from '../../../middlewares/multerConfig.js';
-
-import fs from 'fs/promises';
-import path from 'path';
+import { uploadImage, deleteImage } from '../../../services/uploadService.js';
 import bcrypt from 'bcrypt'
 
 
@@ -85,6 +82,16 @@ export const register = async (req, res) => {
 // ===============================
 export const login = async (req, res) => {
   try {
+    const { error } = loginValidation.validate(req.body);
+    if (error) {
+      return res.status(STATUS.BAD_REQUEST).json({
+        statusCode: STATUS.BAD_REQUEST,
+        message: MESSAGES.VALIDATION_ERROR,
+        admin: { error: error.details[0].message }
+      });
+    }
+
+    const { email, password } = req.body;
     // Seed default admin if no admin exists in the database
     const adminCount = await Admin.countDocuments();
     if (adminCount === 0) {
@@ -97,19 +104,8 @@ export const login = async (req, res) => {
       console.log('Default admin seeded: anil@gmail.com');
     }
 
-    const { error } = loginValidation.validate(req.body);
-    if (error) {
-      return res.status(STATUS.BAD_REQUEST).json({
-        statusCode: STATUS.BAD_REQUEST,
-        message: MESSAGES.VALIDATION_ERROR,
-        admin: { error: error.details[0].message }
-      });
-    }
-
-    const { email, password } = req.body;
     const admin = await Admin.findOne({ email }).select("+password");
-    console.log("admin",admin);
-    
+
     if (!admin || !admin.isActive) {
       return res.status(STATUS.UNAUTHORIZED).json({
         statusCode: STATUS.UNAUTHORIZED,
@@ -117,10 +113,9 @@ export const login = async (req, res) => {
         admin: null
       });
     }
-  
+
     const isPasswordMatch = await admin.comparePassword(password);
-    console.log("isPasswordMatch",isPasswordMatch);
-    
+
     if (!isPasswordMatch) {
       return res.status(STATUS.UNAUTHORIZED).json({
         statusCode: STATUS.UNAUTHORIZED,
@@ -134,17 +129,17 @@ export const login = async (req, res) => {
     return res.status(STATUS.OK).json({
       statusCode: STATUS.OK,
       message: MESSAGES.LOGIN_SUCCESS,
-      
-        token,
-        admin: {
-          id: admin._id,
-          name: admin.name,
-          email: admin.email,
-          role: admin.role,
-          mobileNumber: admin.mobileNumber,
-          createdAt: admin.createdAt,
-        }
+
+      token,
+      admin: {
+        id: admin._id,
+        name: admin.name,
+        email: admin.email,
+        role: admin.role,
+        mobileNumber: admin.mobileNumber,
+        createdAt: admin.createdAt,
       }
+    }
     );
   } catch (error) {
     console.error('Login error:', error);
@@ -382,7 +377,7 @@ export const changePassword = async (req, res) => {
     }
 
     const { currentPassword, newPassword } = req.body;
-    
+
     // Find admin with password field
     const admin = await Admin.findById(req.admin.id).select('+password');
 
@@ -412,9 +407,9 @@ export const changePassword = async (req, res) => {
 
     // Send password changed email
     try {
-      await EmailTemplates.sendPasswordChangedEmail({ 
-        email: admin.email, 
-        name: admin.name 
+      await EmailTemplates.sendPasswordChangedEmail({
+        email: admin.email,
+        name: admin.name
       });
     } catch (emailError) {
       console.error('Email sending error:', emailError);
@@ -422,25 +417,25 @@ export const changePassword = async (req, res) => {
     }
 
     return successResponse(
-      res, 
-      MESSAGES.PASSWORD_CHANGED, 
-      { email: admin.email }, 
+      res,
+      MESSAGES.PASSWORD_CHANGED,
+      { email: admin.email },
       STATUS.OK
     );
 
   } catch (error) {
     console.error('Change password error:', error);
-    
+
     // More detailed error logging
     if (error.name === 'ValidationError') {
       const validationErrors = Object.values(error.errors).map(err => err.message);
       return errorResponse(res, `Validation error: ${validationErrors.join(', ')}`, STATUS.BAD_REQUEST);
     }
-    
+
     if (error.name === 'CastError') {
       return errorResponse(res, 'Invalid admin ID', STATUS.BAD_REQUEST);
     }
-    
+
     return errorResponse(res, 'Server error', STATUS.SERVER_ERROR);
   }
 };
@@ -729,27 +724,16 @@ export const updateProfile = async (req, res) => {
     // if (email) admin.email = email;
     if (mobileNumber !== undefined) admin.mobileNumber = mobileNumber;
 
-    // Define the uploads directory - Match with multer config
-    const uploadDir = 'D:\\backend\\uploads\\profiles';
-
-    // Handle local image upload
-    if (req.file?.path) {
-      // Delete old local image if it exists
+    // Handle image upload to Cloudinary
+    if (req.file?.buffer) {
+      // Delete old image from Cloudinary if it exists
       if (admin.imagePublicId) {
-        const oldImagePath = path.join(uploadDir, admin.imagePublicId);
-        try {
-          await fs.access(oldImagePath);
-          await fs.unlink(oldImagePath);
-        } catch (deleteError) {
-          if (deleteError.code !== 'ENOENT') {
-            console.error('❌ Failed to delete old image:', deleteError.message);
-          }
-        }
+        await deleteImage(admin.imagePublicId);
       }
 
-      const imageUrl = getFileUrl(req, req.file.filename, 'profiles');
-      admin.image = imageUrl;
-      admin.imagePublicId = req.file.filename;
+      const result = await uploadImage(req.file.buffer, 'ecom/profiles');
+      admin.image = result.url;
+      admin.imagePublicId = result.public_id;
     }
 
     await admin.save();
@@ -774,13 +758,7 @@ export const updateProfile = async (req, res) => {
   } catch (error) {
     console.error('Update profile error:', error.message);
 
-    if (req.file?.path) {
-      try {
-        await fs.unlink(req.file.path);
-      } catch (deleteError) {
-        console.error('Failed to delete temporary file:', deleteError.message);
-      }
-    }
+
 
     return errorResponse(res, `Server error: ${error.message}`, STATUS.SERVER_ERROR);
   }

@@ -1,21 +1,11 @@
 import Category from '../../../models/category/category.js';
 import asyncHandler from 'express-async-handler';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { CATEGORY_MESSAGES } from '../../../config/constant/category/categoryMessage.js';
 import { STATUS } from '../../../config/constant/status/status.js';
 import categorySchema from '../../../validation/admin/categoryvalidation/categoryValidation.js';
-// import { v2 as cloudinary } from 'cloudinary';
 import mongoose from 'mongoose';
 import Product from '../../../models/product/product.js';
-import { getFileUrl, getUploadBase } from '../../../middlewares/multerConfig.js';
-
-import fs from 'fs';
-// import path from 'path';
-// const __dirname = path.resolve(); 
-// Get __dirname for ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { uploadImage, deleteImage } from '../../../services/uploadService.js';
 
 // ===========================
 // 1. Get All Categories
@@ -131,10 +121,11 @@ export const createCategory = asyncHandler(async (req, res) => {
   let bannerImage = null;
   let bannerImagePublicId = null;
 
-
   if (req.files && req.files.bannerImage && req.files.bannerImage[0]) {
     const file = req.files.bannerImage[0];
-    bannerImage = getFileUrl(req, file.filename, 'categories'); // Generates http://localhost:4000/uploads/categories/filename.jpg
+    const result = await uploadImage(file.buffer, 'ecom/categories');
+    bannerImage = result.url;
+    bannerImagePublicId = result.public_id;
   }
 
 
@@ -269,16 +260,16 @@ export const updateCategory = asyncHandler(async (req, res) => {
   // category.sizes = sizes || category.sizes;
 
   if (req.files && req.files.bannerImage) {
-    // જો જૂની બેનર ઇમેજ હોય, તો તેને ડિલીટ કરો
-    if (category.bannerImage) {
-      const filename = path.basename(category.bannerImage);
-      const bannerImagePath = path.join(getCategoryUploadsDir(), filename);
-      await deleteFile(bannerImagePath);
+    // Delete old banner image from Cloudinary
+    if (category.bannerImagePublicId) {
+      await deleteImage(category.bannerImagePublicId);
     }
 
-    // નવી બેનર ઇમેજ સેટ કરો
+    // Upload new banner image
     const bannerFile = req.files.bannerImage[0];
-    category.bannerImage = getFileUrl(req, bannerFile.filename, 'categories');
+    const result = await uploadImage(bannerFile.buffer, 'ecom/categories');
+    category.bannerImage = result.url;
+    category.bannerImagePublicId = result.public_id;
   }
 
   try {
@@ -304,29 +295,6 @@ export const updateCategory = asyncHandler(async (req, res) => {
 
 
 
-
-const getCategoryUploadsDir = () => {
-  const dir = path.join(getUploadBase(), 'categories');
-  try {
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-  } catch (error) {
-    console.warn(`Could not create uploads directory at ${dir}. This is expected in serverless environments like Vercel.`);
-  }
-  return dir;
-};
-
-const deleteFile = async (filePath) => {
-  try {
-    await fs.promises.unlink(filePath);
-    // console.log(`✅ File deleted: ${filePath}`);
-    return true;
-  } catch (err) {
-    console.warn(`❌ Failed to delete file: ${filePath}`, err.message);
-    return false;
-  }
-};
 
 export const deleteCategory = asyncHandler(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) {
@@ -357,12 +325,9 @@ export const deleteCategory = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    // Delete associated banner image from local storage
-    if (category.bannerImage) {
-      const filename = path.basename(category.bannerImage);
-      const bannerImagePath = path.join(getCategoryUploadsDir(), filename);
-      // console.log(`Deleting image: ${bannerImagePath}`);
-      await deleteFile(bannerImagePath);
+    // Delete banner image from Cloudinary
+    if (category.bannerImagePublicId) {
+      await deleteImage(category.bannerImagePublicId);
     }
 
     // Delete the category

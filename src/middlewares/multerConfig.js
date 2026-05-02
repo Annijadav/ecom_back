@@ -1,78 +1,8 @@
 import multer from 'multer';
 import path from 'path';
-import { fileURLToPath } from 'url';
-import fs from 'fs';
 
-// Get __dirname equivalent in ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Detect if running on Vercel (read-only filesystem, only /tmp is writable)
-const IS_VERCEL = process.env.VERCEL === '1' || process.env.VERCEL === 'true';
-
-// Get the base upload directory - use /tmp on Vercel, local path otherwise
-const getUploadBase = () => {
-  if (IS_VERCEL) {
-    return '/tmp/uploads';
-  }
-  return path.join(__dirname, '../../uploads');
-};
-
-// Create uploads directory if it doesn't exist
-const createUploadDir = (dir) => {
-  try {
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-  } catch (error) {
-    console.warn(`Could not create directory ${dir}:`, error.message);
-  }
-};
-
-// Local storage configuration for categories
-const categoryStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadPath = path.join(getUploadBase(), 'categories');
-    createUploadDir(uploadPath);
-    cb(null, uploadPath);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    const filename = `category_${uniqueSuffix}${ext}`;
-    cb(null, filename);
-  },
-});
-
-// Local storage configuration for products
-const productStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadPath = path.join(getUploadBase(), 'products');
-    createUploadDir(uploadPath);
-    cb(null, uploadPath);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    const filename = `variant_${uniqueSuffix}${ext}`;
-    cb(null, filename);
-  },
-});
-
-// Local storage configuration for profiles
-const profileStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadPath = path.join(getUploadBase(), 'profiles');
-    createUploadDir(uploadPath);
-    cb(null, uploadPath);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    const filename = `profile_${uniqueSuffix}${ext}`;
-    cb(null, filename);
-  },
-});
+// Memory storage - files stored as Buffer, no disk writes
+const storage = multer.memoryStorage();
 
 // File filter to allow images and videos
 const fileFilter = (req, file, cb) => {
@@ -91,24 +21,10 @@ const fileFilter = (req, file, cb) => {
   cb(new Error('Only images (jpg, jpeg, png, gif, webp, svg) and videos (mp4, avi, mov, wmv, flv, webm) are allowed'));
 };
 
-// Multer instances with increased file size limits
-const categoryUpload = multer({
-  storage: categoryStorage,
-  fileFilter,
-  limits: { fileSize: 10 * 1024 * 1024 },
-});
-
-const productUpload = multer({
-  storage: productStorage,
-  fileFilter,
-  limits: { fileSize: 10 * 1024 * 1024 },
-});
-
-const profileUpload = multer({
-  storage: profileStorage,
-  fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 },
-});
+// Multer instances with memory storage
+const categoryUpload = multer({ storage, fileFilter, limits: { fileSize: 10 * 1024 * 1024 } });
+const productUpload = multer({ storage, fileFilter, limits: { fileSize: 10 * 1024 * 1024 } });
+const profileUpload = multer({ storage, fileFilter, limits: { fileSize: 5 * 1024 * 1024 } });
 
 // Factory function to create dynamic product image uploads
 export const createProductImageUpload = (options = {}) => {
@@ -165,30 +81,6 @@ export const dynamicProductImageUpload = (req, res, next) => {
 
 export const createCustomProductUpload = (variantCount) => {
   return createProductImageUpload({ variantCount, maxCount: 10 });
-};
-
-// Helper function to get file URL
-export const getFileUrl = (req, filename, folderName) => {
-  const host = req.protocol + "://" + req.get("host");
-  return `${host}/uploads/${folderName}/${filename}`;
-};
-
-// Export the upload base getter for use in other files
-export { getUploadBase, IS_VERCEL };
-
-// Helper function to delete local files
-export const deleteFile = (filePath) => {
-  return new Promise((resolve, reject) => {
-    fs.unlink(filePath, (err) => {
-      if (err) {
-        console.error('Error deleting file:', err);
-        reject(err);
-      } else {
-        console.log('File deleted successfully:', filePath);
-        resolve(true);
-      }
-    });
-  });
 };
 
 export { categoryUpload as upload };

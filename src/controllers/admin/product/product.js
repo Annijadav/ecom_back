@@ -4,19 +4,11 @@ import Category from "../../../models/category/category.js";
 import Color from "../../../models/color/color.js";
 // import Brand from "../../../models/  /brand.js";
 import asyncHandler from "express-async-handler";
-import fs from "fs";
-// import fs from "fs/promises";
 import path from "path";
-import { fileURLToPath } from "url";
 import { PRODUCT_MESSAGES } from "../../../config/constant/product/productMessages.js";
 import { STATUS } from "../../../config/constant/status/status.js";
 import mongoose from "mongoose";
-// import path from 'path';
-// import { deleteFile } from '../../../middlewares/multerConfig.js';
-import { getUploadBase } from '../../../middlewares/multerConfig.js';
-// Resolve __dirname for ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { uploadImage, deleteImage } from '../../../services/uploadService.js';
 
 /**
  * @desc    Fetch products with filtering, sorting, and pagination
@@ -821,25 +813,29 @@ export const createProduct = asyncHandler(async (req, res) => {
 
   // Handle file uploads for variant images
   if (req.files && variants.length > 0) {
-    variants = variants.map((variant, index) => {
+    variants = await Promise.all(variants.map(async (variant, index) => {
       const variantImageField = `variants[${index}][image]`;
       if (req.files[variantImageField]) {
         const variantImages = Array.isArray(req.files[variantImageField])
           ? req.files[variantImageField]
           : [req.files[variantImageField]];
-        variant.images = variantImages.map((file, i) => ({
-          url: `/uploads/products/${file.filename}`,
-          public_id: file.filename,
-          alt:
-            req.body[`variants[${index}][imageAlt_${i}]`] ||
-            `Variant ${index} Image ${i + 1}`,
-          isPrimary: i === 0,
-        }));
+        const uploadedImages = await Promise.all(
+          variantImages.map(async (file, i) => {
+            const result = await uploadImage(file.buffer, 'ecom/products');
+            return {
+              url: result.url,
+              public_id: result.public_id,
+              alt: req.body[`variants[${index}][imageAlt_${i}]`] || `Variant ${index} Image ${i + 1}`,
+              isPrimary: i === 0,
+            };
+          })
+        );
+        variant.images = uploadedImages;
       } else {
         variant.images = [];
       }
       return variant;
-    });
+    }));
   }
 
   // Validate that at least one variant has images
@@ -2261,14 +2257,8 @@ export const createProduct = asyncHandler(async (req, res) => {
 ///prodect repalesh img delete karn e
 // const UPLOADS_BASE_DIR = path.join(process.cwd(), "uploads", "products");
 
-async function deleteFile(filePath) {
-  try {
-    await fs.promises.unlink(filePath);
-  } catch (error) {
-    if (error.code !== "ENOENT") {
-      throw error;
-    }
-  }
+async function deleteFile(publicId) {
+  await deleteImage(publicId);
 }
 
 export const updateProduct = asyncHandler(async (req, res) => {
@@ -2505,7 +2495,7 @@ export const updateProduct = asyncHandler(async (req, res) => {
         }
       }
 
-      const normalizeUrl = (url) => url.replace(/^\/[Uu]ploads\/products\//, '/uploads/products/');
+      const normalizeUrl = (url) => url;
 
       // Only process image deletion if frontendExistingImages is provided
       let imagesToKeep = images;
@@ -2518,29 +2508,20 @@ export const updateProduct = asyncHandler(async (req, res) => {
               errors.push(`Missing URL in existingImages for variant ${index}`);
               return false;
             }
-            const normalizedUrl = normalizeUrl(img.url);
-            const filename = path.basename(normalizedUrl);
-            const filePath = path.join(getProductUploadsDir(), filename);
-            const exists = fs.existsSync(filePath);
-            if (!exists) {
-              console.warn(`Image file does not exist: ${filePath}`);
-            }
-            return exists;
+            return true;
           })
-          .map((img) => normalizeUrl(img.url));
+          .map((img) => img.url);
 
-        imagesToKeep = images.filter((img) => frontendImageUrls.includes(normalizeUrl(img.url)));
-        imagesToDelete = images.filter((img) => !frontendImageUrls.includes(normalizeUrl(img.url)));
+        imagesToKeep = images.filter((img) => frontendImageUrls.includes(img.url));
+        imagesToDelete = images.filter((img) => !frontendImageUrls.includes(img.url));
       }
 
-      // Delete images from server
+      // Delete images from Cloudinary
       for (const image of imagesToDelete) {
         try {
-          const filename = path.basename(normalizeUrl(image.url));
-          const filePath = path.join(getProductUploadsDir(), filename);
-          await deleteFile(filePath);
+          await deleteImage(image.public_id);
         } catch (error) {
-          console.error(`Failed to delete local file ${image.public_id}:`, error.message);
+          console.error(`Failed to delete image ${image.public_id}:`, error.message);
           deletionErrors.push(`Failed to delete image ${image.public_id}: ${error.message}`);
         }
       }
@@ -2548,12 +2529,11 @@ export const updateProduct = asyncHandler(async (req, res) => {
       // Add new images from existingImages
       const newImagesFromExisting = frontendExistingImages
         .filter((img) => {
-          const normalizedUrl = normalizeUrl(img.url);
-          return !images.some((i) => normalizeUrl(i.url) === normalizedUrl) && fs.existsSync(path.join(getProductUploadsDir(), path.basename(normalizedUrl)));
+          return img.url && !images.some((i) => i.url === img.url);
         })
         .map((img, i) => ({
-          url: normalizeUrl(img.url),
-          public_id: path.basename(normalizeUrl(img.url)),
+          url: img.url,
+          public_id: img.public_id || '',
           alt: img.alt || `Variant ${index} Image ${images.length + i + 1}`,
           isPrimary: img.isPrimary || (images.length === 0 && i === 0),
         }));
@@ -2566,12 +2546,17 @@ export const updateProduct = asyncHandler(async (req, res) => {
             : [req.files[variantImageField]])
         : [];
 
-      const newImagesFromUploads = frontendImages.map((file, i) => ({
-        url: `/uploads/products/${file.filename}`,
-        public_id: file.filename,
-        alt: req.body[`variants[${index}][imageAlt_${i}]`] || `Variant ${index} Image ${images.length + i + 1}`,
-        isPrimary: images.length === 0 && i === 0 && !newImagesFromExisting.some((img) => img.isPrimary),
-      }));
+      const newImagesFromUploads = await Promise.all(
+        frontendImages.map(async (file, i) => {
+          const result = await uploadImage(file.buffer, 'ecom/products');
+          return {
+            url: result.url,
+            public_id: result.public_id,
+            alt: req.body[`variants[${index}][imageAlt_${i}]`] || `Variant ${index} Image ${images.length + i + 1}`,
+            isPrimary: images.length === 0 && i === 0 && !newImagesFromExisting.some((img) => img.isPrimary),
+          };
+        })
+      );
 
       // Combine images
       images = [...imagesToKeep, ...newImagesFromExisting, ...newImagesFromUploads];
@@ -2591,10 +2576,9 @@ export const updateProduct = asyncHandler(async (req, res) => {
         for (const publicId of imagesToRemove) {
           if (existingPublicIds.includes(publicId)) {
             try {
-              const filePath = path.join(getProductUploadsDir(), publicId);
-              await deleteFile(filePath);
+              await deleteImage(publicId);
             } catch (error) {
-              console.error(`Failed to delete local file ${publicId}:`, error.message);
+              console.error(`Failed to delete image ${publicId}:`, error.message);
               deletionErrors.push(`Failed to delete image ${publicId}: ${error.message}`);
             }
           }
@@ -3247,17 +3231,6 @@ export const updateProduct = asyncHandler(async (req, res) => {
  * @route   DELETE /api/products/:id
  * @access  Private (Admin)
  */
-const getProductUploadsDir = () => {
-  const dir = path.join(getUploadBase(), 'products');
-  try {
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-  } catch (error) {
-    console.warn(`Could not create uploads directory at ${dir}. This is expected in serverless environments like Vercel.`);
-  }
-  return dir;
-};
 
 export const deleteProduct = asyncHandler(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) {
@@ -3279,15 +3252,11 @@ export const deleteProduct = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const uploadsDir = getProductUploadsDir();
-
+    // Delete all variant images from Cloudinary
     const deletePromises = product.variants.flatMap((variant) =>
       variant.images?.map((img) => {
-        const filename = path.basename(img.url);
-        const imagePath = path.join(uploadsDir, filename);
-        console.log(`Deleting image: ${imagePath}`);
-        return deleteFile(imagePath).catch((err) => {
-          console.warn(`Failed to delete image: ${imagePath}`, err.message);
+        return deleteImage(img.public_id).catch((err) => {
+          console.warn(`Failed to delete image: ${img.public_id}`, err.message);
           return false;
         });
       }) || []
