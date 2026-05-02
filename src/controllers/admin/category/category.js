@@ -305,9 +305,13 @@ export const updateCategory = asyncHandler(async (req, res) => {
 
 const UPLOADS_BASE_DIR = process.env.UPLOADS_DIR || path.join(process.cwd(), 'uploads', 'categories');
 
-// Ensure the uploads/categories folder exists
-if (!fs.existsSync(UPLOADS_BASE_DIR)) {
-  fs.mkdirSync(UPLOADS_BASE_DIR, { recursive: true });
+// Ensure the uploads/categories folder exists (try-catch for read-only environments like Vercel)
+try {
+  if (!fs.existsSync(UPLOADS_BASE_DIR)) {
+    fs.mkdirSync(UPLOADS_BASE_DIR, { recursive: true });
+  }
+} catch (error) {
+  console.warn(`Could not create uploads directory at ${UPLOADS_BASE_DIR}. This is expected in serverless environments like Vercel.`);
 }
 
 const deleteFile = async (filePath) => {
