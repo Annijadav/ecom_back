@@ -85,6 +85,18 @@ export const register = async (req, res) => {
 // ===============================
 export const login = async (req, res) => {
   try {
+    // Seed default admin if no admin exists in the database
+    const adminCount = await Admin.countDocuments();
+    if (adminCount === 0) {
+      await Admin.create({
+        name: 'Anil',
+        email: 'anil@gmail.com',
+        password: 'Anil@123',
+        role: 'admin',
+      });
+      console.log('Default admin seeded: anil@gmail.com');
+    }
+
     const { error } = loginValidation.validate(req.body);
     if (error) {
       return res.status(STATUS.BAD_REQUEST).json({
