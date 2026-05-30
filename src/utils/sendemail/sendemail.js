@@ -27,7 +27,7 @@ const sendEmail = async (to, subject, content, isHtml = true) => {
 
     // Configure mail options
     const mailOptions = {
-      from: `"Misha Brands Factory" <${process.env.EMAIL_FROM}>`, // Proper formatting for sender
+      from: `"MEthniz Courture" <${process.env.EMAIL_FROM}>`, // Proper formatting for sender
       to,
       subject,
       [isHtml ? 'html' : 'text']: content, // Set content based on isHtml flag

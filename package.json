@@ -9,10 +9,6 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js"
   },
-  "repository": {
-    "type": "git",
-    "url": "git@git.tecoreng.com:misha-brand-factory/backend.git"
-  },
   "keywords": [],
   "author": "",
   "license": "ISC",

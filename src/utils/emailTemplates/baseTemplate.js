@@ -1,9 +1,9 @@
-export const base  = (content) =>`<!DOCTYPE html>
+export const base = (content) => `<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Misha Brands Factory</title>
+    <title>Ethniz Courture</title>
     <style>
       body {
         font-family: "Arial", sans-serif;
@@ -72,13 +72,13 @@ export const base  = (content) =>`<!DOCTYPE html>
   <body>
     <div class="container">
       <div class="header">
-        <h1>Misha Brands Factory</h1>
+        <h1>Ethniz Courture</h1>
       </div>
       <div class="content">
         ${content}
       </div>
       <div class="footer">
-        &copy; Misha Brands Factory. All rights reserved.
+        &copy; Ethniz Courture. All rights reserved.
       </div>
     </div>
   </body>

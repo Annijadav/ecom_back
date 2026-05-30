@@ -25,7 +25,7 @@ class EmailTemplates {
       
       <p>Hi <b>${user.fullName || ''}</b>,</p>
       
-      <p>Thank you for registering with Misha Brands Factory! Please use the following OTP to verify your email address:</p>
+      <p>Thank you for registering with Ethniz Courture! Please use the following OTP to verify your email address:</p>
       
       <div style="text-align: center; margin: 30px 0; padding: 15px; background-color: #f5f5f5; border-radius: 5px; font-size: 24px; letter-spacing: 5px; font-weight: bold;">
         ${otp}
@@ -37,7 +37,7 @@ class EmailTemplates {
       
       <div style="border-top: 1px solid #ddd; margin: 20px 0; padding-top: 20px;"></div>
       
-      <p>Best Regards,<br>Misha Brands Factory Team</p>
+      <p>Best Regards,<br>Ethniz Courture Team</p>
     `;
 
     try {
@@ -123,11 +123,11 @@ class EmailTemplates {
       
       <p>You now have full access to all the features and services available to your account type: <strong>${user.role}</strong>.</p>
       
-      <p>Welcome to the Misha Brands Factory community!</p>
+      <p>Welcome to the Ethniz Courture community!</p>
       
       <div style="border-top: 1px solid #ddd; margin: 20px 0; padding-top: 20px;"></div>
       
-      <p>Best Regards,<br>Misha Brands Factory Team</p>
+      <p>Best Regards,<br>Ethniz Courture Team</p>
     `;
 
     try {
@@ -169,12 +169,12 @@ class EmailTemplates {
       
       <div style="text-align: center; margin: 30px 0;">
         <p>Need help? Contact our support team:</p>
-        <p><strong>Email:</strong> support@Misha Brands Factory.com</p>
+        <p><strong>Email:</strong> support@Ethniz Courture.com</p>
       </div>
       
       <div style="border-top: 1px solid #ddd; margin: 20px 0; padding-top: 20px;"></div>
       
-      <p>Best Regards,<br>Misha Brands Factory Team</p>
+      <p>Best Regards,<br>Ethniz Courture Team</p>
     `;
 
     try {
@@ -211,7 +211,7 @@ class EmailTemplates {
       
       <div style="border-top: 1px solid #ddd; margin: 20px 0; padding-top: 20px;"></div>
       
-      <p>Best Regards,<br>Misha Brands Factory Team</p>
+      <p>Best Regards,<br>Ethniz Courture Team</p>
     `;
 
     try {
@@ -253,12 +253,12 @@ class EmailTemplates {
       
       <div style="text-align: center; margin: 30px 0;">
         <p>Need help? Contact our support team:</p>
-        <p><strong>Email:</strong> support@Misha Brands Factory.com</p>
+        <p><strong>Email:</strong> support@Ethniz Courture.com</p>
       </div>
       
       <div style="border-top: 1px solid #ddd; margin: 20px 0; padding-top: 20px;"></div>
       
-      <p>Best Regards,<br>Misha Brands Factory Team</p>
+      <p>Best Regards,<br>Ethniz Courture Team</p>
     `;
 
     try {
@@ -277,7 +277,7 @@ class EmailTemplates {
    * @returns {Promise<boolean>} - Promise that resolves when email is sent
    */
   static async sendContactConfirmationEmail(contact) {
-    const subject = 'Thank you for contacting us - Misha Brands Factory';
+    const subject = 'Thank you for contacting us - Ethniz Courture';
 
     const getTypeDisplay = (type) => {
       const types = {
@@ -307,7 +307,7 @@ class EmailTemplates {
       
       <p>Dear <b>${contact.name}</b>,</p>
       
-      <p>Thank you for reaching out to Misha Brands Factory. We have successfully received your message and our team will review it shortly.</p>
+      <p>Thank you for reaching out to Ethniz Courture. We have successfully received your message and our team will review it shortly.</p>
       
       <div style="background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin: 25px 0; border-left: 4px solid #007bff;">
         <h3 style="margin-top: 0; color: #007bff;">Message Details</h3>
@@ -369,14 +369,14 @@ class EmailTemplates {
       
       <div style="text-align: center; margin: 30px 0;">
         <p>Need immediate assistance? Contact us:</p>
-        <p><strong>Email:</strong> support@Misha Brands Factory.com</p>
+        <p><strong>Email:</strong> support@Ethniz Courture.com</p>
         <p><strong>Phone:</strong> +91-XXXXXXXXXX</p>
       </div>
       
       <div style="border-top: 1px solid #ddd; margin: 20px 0; padding-top: 20px;"></div>
       
-      <p>Thank you for choosing Misha Brands Factory!</p>
-      <p>Best Regards,<br>Misha Brands Factory Sports Support Team</p>
+      <p>Thank you for choosing Ethniz Courture!</p>
+      <p>Best Regards,<br>Ethniz Courture Sports Support Team</p>
     `;
 
     try {
@@ -512,7 +512,7 @@ class EmailTemplates {
       <div style="border-top: 1px solid #ddd; margin: 20px 0; padding-top: 20px;"></div>
       
       <p style="color: #666; font-size: 14px;">
-        This notification was automatically generated from the Misha Brands Factory contact form.
+        This notification was automatically generated from the Ethniz Courture contact form.
         <br>Contact ID: ${contact._id}
       </p>
     `;
@@ -552,7 +552,7 @@ export function getPasswordResetTemplate(name, resetUrl) {
     
     <div class="divider"></div>
     
-    <p>Best Regards,<br>Misha Brands Factory Team</p>
+    <p>Best Regards,<br>Ethniz Courture Team</p>
   `;
 }
 
@@ -574,7 +574,7 @@ export function getPasswordChangeTemplate(name, isReset) {
     
     <div style="border-top: 1px solid #ddd; margin: 20px 0; padding-top: 20px;"></div>
     
-    <p>Best Regards,<br>Misha Brands Factory Team</p>
+    <p>Best Regards,<br>Ethniz Courture Team</p>
   `;
 }
 
